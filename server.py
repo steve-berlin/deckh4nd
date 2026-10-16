@@ -14,7 +14,8 @@ import os  # reads environment variables (settings passed in from the shell)
 from http import HTTPStatus  # named status codes, e.g. HTTPStatus.NOT_FOUND = 404
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path  # handles file paths the same way on every OS
-from urllib.parse import parse_qs  # turns "i1=hi&i2=yo" into {"i1": ["hi"], ...}
+from urllib.parse import parse_qs  # turns "youtubeUrl=hi&format=yo" into {"youtubeUrl": ["hi"], ...}
+import subprocess
 
 # --- Settings -------------------------------------------------------------
 # os.environ.get("NAME", default) uses the variable if it is set, else default.
@@ -23,7 +24,7 @@ from urllib.parse import parse_qs  # turns "i1=hi&i2=yo" into {"i1": ["hi"], ...
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8000"))
 
-FIELDS = ("i1", "i2", "i3", "i4", "i5")  # must match name="..." in index.html
+FIELDS = ("youtubeUrl", "format", "playlist")  # must match name="..." in index.html
 MAX_LEN = 200  # max characters kept per box (same as maxlength in the HTML)
 MAX_BODY = 2048  # max bytes we accept per form submission; stops huge uploads
 
@@ -36,7 +37,12 @@ PAGE = Path(__file__).with_name("index.html").read_bytes()
 SECURITY_HEADERS = {
     # Only allow the form to send data back to us; block scripts, images,
     # styles from anywhere, and stop other sites from embedding this page.
-    "Content-Security-Policy": "default-src 'none'; form-action 'self'; frame-ancestors 'none'",
+    "Content-Security-Policy": (
+        "default-src 'none'; "
+        "style-src 'unsafe-inline'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none';"
+    ),
     # Don't let the browser "guess" a file type different from what we say.
     "X-Content-Type-Options": "nosniff",
     # Don't tell other sites which page a visitor came from.
@@ -87,7 +93,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, b"Too large")
 
         # rfile = the pipe from the visitor. Read exactly `size` bytes,
-        # turn bytes into text, then split "i1=a&i2=b" into a dictionary.
+        # turn bytes into text, then split "youtubeUrl=a&format=b" into a dictionary.
         # keep_blank_values=True keeps empty boxes so all 5 always print.
         body = self.rfile.read(size).decode("utf-8", errors="replace")
         # max_num_fields makes parse_qs refuse (ValueError) more than 5 boxes.
@@ -96,6 +102,9 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return self.reply(HTTPStatus.BAD_REQUEST, b"Too many fields")
 
+        link = form.get("youtubeUrl", [""])[0][:MAX_LEN]
+        audio_format = form.get("format", [""])[0][:MAX_LEN]
+        playlist = form.get("playlist", [""])[0][:MAX_LEN]
         # THE ECHO: build one line and print it on the host.
         # form.get(f, [""])[0] = first value for that box ("" if missing).
         # [:MAX_LEN] cuts it to 200 characters.
@@ -106,8 +115,23 @@ class Handler(BaseHTTPRequestHandler):
         # the same moment can't get their words mixed together.
         # flush=True prints immediately instead of waiting in a buffer.
         line = " | ".join(f"{f}={form.get(f, [''])[0][:MAX_LEN]!r}" for f in FIELDS)
-        print(line, flush=True)
+        #print(line, flush=True)
+        # yt-dlp -U --update-to nightly --extractor-args 'youtube:player_client=android' \
+        #  <playlist argument (y or blank)> \
+        #  -f bestaudio -x --audio-format ...
+        #  "$link"
 
+
+        args = [
+       "yt-dlp",
+        "--extractor-args", "youtube:player_client=android",
+        "-f", "bestaudio",
+        "-x",
+        "--audio-format", "mp3",
+        "-P", "downloads",
+        link,
+        ]
+        subprocess.run(args, check=True, timeout=600)
         # Post/Redirect/Get: send the browser back to the empty form with
         # "303 See Other". Pressing refresh won't send the same data twice.
         self.reply(HTTPStatus.SEE_OTHER, Location="/")

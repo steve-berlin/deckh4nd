@@ -378,7 +378,7 @@
       </p>
 
       <!-- The form collects the link, format, and playlist setting. -->
-      <form class="downloader" id="downloadForm">
+      <form method="post" class="downloader" id="downloadForm">
 
         <!-- The user pastes a YouTube video or playlist link here. -->
         <label class="field">
@@ -415,8 +415,8 @@
             </span>
 
             <select id="playlist" name="playlist">
-              <option value="">Yes</option>
-              <option value="--no-playlist">No</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
             </select>
           </label>
         </div>
@@ -447,7 +447,7 @@
           aria-live="polite"
         ></div>
 
-        <!-- Explains what the form accepts. -->
+        <!-- Explains what the form accepts.
         <p class="fine-print" id="urlHelp">
           Best format is selected automatically by the backend.
         </p>
@@ -455,7 +455,7 @@
         <p class="fine-print" id="playlistHelp">
           Enter y to request the full playlist. Leave the field blank
           to request a single video.
-        </p>
+        </p>-->
       </form>
 
       <!-- These blocks explain the basic workflow. -->

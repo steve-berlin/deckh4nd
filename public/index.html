@@ -281,6 +281,11 @@
       font-size: 12px;
     }
 
+    /* Colors links inside the cards with the page's lime accent. */
+    .feature a {
+      color: var(--accent);
+    }
+
     /* Separates the footer from the main page. */
     footer {
       display: flex;
@@ -472,7 +477,8 @@
 
         <div class="feature">
           <h2>03 / Download</h2>
-          <p>Connect a backend to process and return media.</p>
+          <!-- Links to the server's list of finished files. -->
+          <p>Grab finished files from <a href="/downloads">Downloads</a>.</p>
         </div>
       </section>
     </main>

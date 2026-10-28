@@ -1,29 +1,33 @@
 # CLAUDE.md
 
-Minimal Python stdlib web service: `index.html` form with 5 inputs, `server.py` prints submissions to stdout. Template repo: github.com/steve-berlin/pyweb-service-template (public, GPL-3.0).
+Minimal Python stdlib web service. `public/index.html` is a form (YouTube link, format, playlist). `server.py` queues a `yt-dlp` audio download into `DOWNLOAD_DIR` (default `public/downloads`) and serves the finished files at `/downloads`. Based on github.com/steve-berlin/pyweb-service-template (GPL-3.0). Remote: github.com/steve-berlin/deckh4nd.
 
 ## Rules
 
-- Stdlib only. No pip packages, frameworks, JS, or CSS files.
+- Stdlib only. No pip packages, frameworks, JS, or CSS files. External programs: `yt-dlp` and `ffmpeg` only.
 - Keep compatibility with Python 3.8 or newer. Target profile: Debian 13, Python 3.13, LAN host.
-- Minimalism first: fewest lines, files, and dependencies. Then performance (the page is cached in memory at startup).
-- Every file gets detailed, beginner-friendly comments. No separate `docs/` (the user chose comments over ELI docs).
-- Field names `i1`–`i5` in `index.html` must match `FIELDS` in `server.py`.
-- The echo must stay a single `print(..., flush=True)` line using `!r`. That escaping blocks log forgery and terminal escape injection. Never use a shell or `subprocess` to echo.
-- Keep the limits: `MAX_LEN`, `MAX_BODY`, `max_num_fields`, handler `timeout`.
-- Only `/` is served; everything else returns 404. Do not switch to `SimpleHTTPRequestHandler`, which lists files.
+- Minimalism first: fewest lines, files, and dependencies. Then performance (the page is cached in memory at startup; files are sent with `socket.sendfile`).
+- Every line gets ELI11-style comments (the user chose ELI11). No separate `docs/`.
+- Form field names in `index.html` must match `FIELDS` in `server.py` (`youtubeUrl`, `format`, `playlist`).
+- Start `yt-dlp` only as an argument list with `--` before the link. Never use a shell. Keep the `FORMATS` and `YT_HOSTS` whitelists.
+- Keep the limits: `MAX_URL`, `MAX_BODY`, `max_num_fields`, pool `max_workers`, the `slots` semaphore, the subprocess `timeout`, and the handler `timeout`.
+- Only `/`, `/downloads`, and `/downloads/<name>` are served. Everything else returns 404. Do not switch to `SimpleHTTPRequestHandler`.
+- `/downloads/<name>` must reject names containing `/` or starting with `.`, plus anything that is not a regular file. The list page must `html.escape` names and `quote` links.
+- The server never deletes files. The user manages cleanup, the env vars (`HOST`, `PORT`, `DOWNLOAD_DIR`; defaults must stay), and installing yt-dlp and ffmpeg.
 
 ## Workflow
 
 - Work in the smallest possible steps. Before each one, ask the user and explain it in simple terms.
-- After each step: commit (conventional commits), then push to `origin main`.
+- After each step: commit (conventional commits), then push to `origin master`.
 - Keep `README.md` and this file current. Keep this file under 200 lines and 40 KB; if it grows past that, offer to compress it.
 
 ## Test
 
 ```sh
 PORT=8765 python3 server.py &
-curl -sI localhost:8765/                 # 200 + security headers
-curl -s -o /dev/null -w '%{http_code}\n' -d 'i1=a%0Ab' localhost:8765/   # 303, host prints i1='a\nb'
-kill %1                                  # SIGINT is ignored by background jobs in scripts; use TERM
+curl -sI localhost:8765/                             # 200 + security headers
+curl -s localhost:8765/downloads                     # HTML list of files
+curl -s -o /dev/null --path-as-is -w '%{http_code}\n' localhost:8765/downloads/../server.py   # 404
+curl -s -o /dev/null -w '%{http_code}\n' -d 'youtubeUrl=https://youtu.be/x&format=mp3' localhost:8765/   # 303
+kill %1                                              # SIGINT is ignored by background jobs in scripts; use TERM
 ```

@@ -11,9 +11,11 @@ import os  # reads settings (environment variables) passed in from the shell
 import subprocess  # starts other programs; we use it to start yt-dlp (must be installed, plus ffmpeg)
 import threading  # gives us a "counter with a limit" (used for `slots` below)
 from concurrent.futures import ThreadPoolExecutor  # runs jobs in the background
+from html import escape  # turns "<" into "&lt;" etc., so a file name can't sneak code into our page
 from http import HTTPStatus  # named status codes, e.g. HTTPStatus.NOT_FOUND = 404
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # the web server parts
 from pathlib import Path  # handles file/folder paths the same way on every OS
+from urllib.parse import quote  # makes text safe inside a link: a space becomes %20, "#" becomes %23
 from urllib.parse import parse_qs  # turns "youtubeUrl=a&format=b" into {"youtubeUrl": ["a"], "format": ["b"]}
 from urllib.parse import urlparse  # splits a link into parts (scheme, host, ...)
 
@@ -98,7 +100,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         """The browser asks to SEE a page (typing the address, clicking a link)."""
-        if self.path.partition("?")[0] != "/":  # .partition("?")[0] ignores anything after "?" in the address
+        path = self.path.partition("?")[0]  # the address without anything after "?" (e.g. "/downloads?x=1" -> "/downloads")
+        if path == "/downloads":  # the list of finished downloads
+            # Build one "<li><a ...>name</a></li>" line per file, sorted A-Z, skipping folders.
+            # The list is rebuilt on every visit, so new downloads show up right away.
+            # quote() keeps the link working for names with spaces; escape() keeps the shown name harmless text.
+            items = "".join(f'<li><a href="/downloads/{quote(f.name)}">{escape(f.name)}</a></li>'
+                            for f in sorted(DOWNLOADS.iterdir()) if f.is_file())
+            # A tiny HTML page around the list. .encode() turns the text into bytes, which is what the network sends.
+            return self.reply(HTTPStatus.OK, f"<!doctype html><meta charset=utf-8><title>Downloads</title><ul>{items}</ul>".encode(),
+                              Content_Type="text/html; charset=utf-8")
+        if path != "/":  # anything else that isn't the home page
             return self.reply(HTTPStatus.NOT_FOUND, b"Not found")  # 404: no such page
         self.reply(HTTPStatus.OK, PAGE, Content_Type="text/html; charset=utf-8")  # 200: here is the form
 

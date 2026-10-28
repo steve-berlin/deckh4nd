@@ -60,6 +60,11 @@ Everything else returns 404.
 - Responses carry CSP, `nosniff` and `no-referrer` headers. Idle connections are dropped after 10 s.
 - **No HTTPS and no login.** Anyone who can reach the port can queue downloads and fetch files. Fine on a trusted home LAN. Do not expose it to the internet without a reverse proxy (Caddy or nginx) with authentication.
 
+## Known limitations
+
+- No HTTP Range support: interrupted downloads restart from zero, and browsers can't seek before the file is saved.
+- `public/index.html` mentions JavaScript status messages, but the CSP (`default-src 'none'`) blocks all scripts, so none run.
+
 ## License
 
 GPL-3.0. See [LICENSE](LICENSE).

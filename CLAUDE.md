@@ -15,6 +15,8 @@ Minimal Python stdlib web service. `public/index.html` is a form (YouTube link, 
 - `/downloads/<name>` must reject names containing `/` or starting with `.`, plus anything that is not a regular file. The list page must `html.escape` names and `quote` links.
 - The server never deletes files. The user manages cleanup, the env vars (`HOST`, `PORT`, `DOWNLOAD_DIR`; defaults must stay), and installing yt-dlp and ffmpeg.
 
+- Known limitations (listed in README): no HTTP Range support; leftover JS mentions in `index.html` are dead code because CSP blocks scripts. If either changes, update the README section.
+
 ## Workflow
 
 - Work in the smallest possible steps. Before each one, ask the user and explain it in simple terms.

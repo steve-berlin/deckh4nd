@@ -15,9 +15,12 @@ from html import escape  # turns "<" into "&lt;" etc., so a file name can't snea
 from http import HTTPStatus  # named status codes, e.g. HTTPStatus.NOT_FOUND = 404
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # the web server parts
 from pathlib import Path  # handles file/folder paths the same way on every OS
-from urllib.parse import quote  # makes text safe inside a link: a space becomes %20, "#" becomes %23
-from urllib.parse import parse_qs  # turns "youtubeUrl=a&format=b" into {"youtubeUrl": ["a"], "format": ["b"]}
-from urllib.parse import urlparse  # splits a link into parts (scheme, host, ...)
+# Four helpers for web addresses:
+#   parse_qs: turns "youtubeUrl=a&format=b" into {"youtubeUrl": ["a"], "format": ["b"]}
+#   quote:    makes text safe inside a link: a space becomes %20, "#" becomes %23
+#   unquote:  the reverse of quote: turns %20 back into a space
+#   urlparse: splits a link into parts (scheme, host, ...)
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 # --- Settings ---
 # os.environ.get("NAME", default) uses the setting if you typed one before the command
@@ -110,6 +113,32 @@ class Handler(BaseHTTPRequestHandler):
             # A tiny HTML page around the list. .encode() turns the text into bytes, which is what the network sends.
             return self.reply(HTTPStatus.OK, f"<!doctype html><meta charset=utf-8><title>Downloads</title><ul>{items}</ul>".encode(),
                               Content_Type="text/html; charset=utf-8")
+        if path.startswith("/downloads/"):  # one file, e.g. "/downloads/song.m4a"
+            name = unquote(path[len("/downloads/"):])  # cut off "/downloads/" and decode %20 etc. -> "song.m4a"
+            file = DOWNLOADS / name  # the full path of that file on disk
+            # Safety: a "/" would let a visitor climb out of the folder ("../../etc/passwd") or into
+            # subfolders, and a leading "." means a hidden file (or ".."). is_file() also says no to folders
+            # and to files that don't exist. In every such case we pretend there is nothing there.
+            if "/" in name or name.startswith(".") or not file.is_file():
+                return self.reply(HTTPStatus.NOT_FOUND, b"Not found")  # 404
+            with file.open("rb") as f:  # "rb" = read raw bytes; "with" closes the file when we're done
+                self.send_response(HTTPStatus.OK)  # the status line "200 OK"
+                for header, value in HEADERS.items():  # our usual safety headers
+                    self.send_header(header, value)
+                # "octet-stream" = "just bytes": the browser saves the file instead of trying to open it.
+                self.send_header("Content-Type", "application/octet-stream")
+                # Suggest the file name for saving. filename*=UTF-8'' plus quote() keeps names with
+                # spaces, emoji or quotes intact, and stops them from breaking this header.
+                self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(name)}")
+                # os.fstat asks the system about the opened file; st_size is its size in bytes.
+                self.send_header("Content-Length", str(os.fstat(f.fileno()).st_size))
+                self.end_headers()  # a blank line = "headers finished"
+                if self.command != "HEAD":  # HEAD = headers only
+                    self.wfile.flush()  # push the waiting headers out first, so they arrive before the file
+                    # sendfile lets the operating system copy the file straight from disk to the network.
+                    # Python never holds the whole file in memory: fastest way, even for huge files.
+                    self.connection.sendfile(f)
+            return  # done with this visitor
         if path != "/":  # anything else that isn't the home page
             return self.reply(HTTPStatus.NOT_FOUND, b"Not found")  # 404: no such page
         self.reply(HTTPStatus.OK, PAGE, Content_Type="text/html; charset=utf-8")  # 200: here is the form

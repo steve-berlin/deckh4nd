@@ -28,8 +28,8 @@ PORT = int(os.environ.get("PORT", "8000"))  # the "door" to listen on; int() tur
 # Path(__file__) is this script's own location, so the paths below work no matter
 # which folder you started the script from.
 BASE = Path(__file__).resolve().parent  # the folder that contains this script
-# Where downloads are saved. Default: a "downloads" folder next to this script.
-DOWNLOADS = Path(os.environ.get("DOWNLOAD_DIR", BASE / "downloads"))
+# Where downloads are saved. Default: "public/downloads" next to this script.
+DOWNLOADS = Path(os.environ.get("DOWNLOAD_DIR", BASE / "public/downloads"))
 DOWNLOADS.mkdir(parents=True, exist_ok=True)  # create that folder if it doesn't exist yet
 
 FIELDS = ("youtubeUrl", "format", "playlist")  # names of the form's boxes; must match name="..." in index.html
@@ -41,7 +41,7 @@ FORMATS = {"mp3", "m4a", "opus", "wav", "flac", "aac", "vorbis"}  # audio format
 YT_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}  # allowed link websites
 
 # Read index.html (the form) ONCE at startup and keep it in memory: faster than opening the file on every visit.
-PAGE = (BASE / "index.html").read_bytes()
+PAGE = (BASE / "public/index.html").read_bytes()
 
 # Extra safety rules sent with every reply. Browsers obey them.
 HEADERS = {

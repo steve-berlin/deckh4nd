@@ -32,6 +32,23 @@ Stop with `Ctrl+C`.
 | `PORT`         | `8000`                  |
 | `DOWNLOAD_DIR` | `public/downloads` next to `server.py` (created if missing) |
 
+### Reach from other devices
+
+The default `HOST=127.0.0.1` refuses every other machine. To open the site from a phone or laptop on the same Wi-Fi:
+
+```sh
+HOST=0.0.0.0 python3 server.py   # listen on all network interfaces
+hostname -I                      # find this machine's LAN IP, e.g. 192.168.1.161
+```
+
+Then browse to `http://<LAN IP>:8000` on the other device. If it still won't load, check these in order:
+
+1. **VPN:** many VPNs block incoming LAN traffic. NordVPN: `nordvpn set lan-discovery on`.
+2. **Firewall:** with ufw, run `sudo ufw allow from 192.168.1.0/24 to any port 8000 proto tcp` (adjust the subnet to match your LAN).
+3. **Router client isolation** ("AP isolation" or guest networks) stops Wi-Fi devices from reaching each other. Turn it off, or use the main network.
+
+Only do this on a network you trust. See [Security](#security).
+
 ## Routes
 
 | Method     | Path                | What it does |

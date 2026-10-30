@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Minimal Python stdlib web service. `public/index.html` is a form (YouTube link, format, playlist). `server.py` queues a `yt-dlp` audio download into `DOWNLOAD_DIR` (default `public/downloads`) and serves the finished files at `/downloads`. Based on github.com/steve-berlin/pyweb-service-template (GPL-3.0). Remote: github.com/steve-berlin/deckh4nd.
+Minimal Python stdlib web service. `public/index.html` is a form (YouTube link, format, playlist). `server.py` queues a `yt-dlp` audio download into `DOWNLOAD_DIR` (default `public/downloads`) and serves the finished files at `/downloads`. Optional `tailscale.sh` publishes it to the user's tailnet. Based on github.com/steve-berlin/pyweb-service-template (GPL-3.0). Remote: github.com/steve-berlin/deckh4nd.
 
 ## Rules
 
@@ -14,7 +14,7 @@ Minimal Python stdlib web service. `public/index.html` is a form (YouTube link, 
 - Only `/`, `/downloads`, and `/downloads/<name>` are served. Everything else returns 404. Do not switch to `SimpleHTTPRequestHandler`.
 - `/downloads/<name>` must reject names containing `/` or starting with `.`, plus anything that is not a regular file. The list page must `html.escape` names and `quote` links.
 - The server never deletes files. The user manages cleanup, the env vars (`HOST`, `PORT`, `DOWNLOAD_DIR`; defaults must stay), and installing yt-dlp and ffmpeg.
-
+- `tailscale.sh` (bash, `set -euo pipefail`, must pass `shellcheck`): configure-only and idempotent. It never installs Tailscale. Use `tailscale serve` only, never `funnel` (that would make the service public). Keep the `server.py` `HOST` default at `127.0.0.1`, since serve proxies to localhost. The user manages the Tailscale account, invites, ACLs, and MagicDNS/HTTPS.
 - Known limitations (listed in README): no HTTP Range support; leftover JS mentions in `index.html` are dead code because CSP blocks scripts. If either changes, update the README section.
 
 ## Workflow

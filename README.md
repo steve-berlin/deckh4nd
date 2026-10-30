@@ -2,7 +2,7 @@
 
 Minimal YouTube-to-audio web service in pure Python. Paste a link, pick a format, and the server downloads the audio with `yt-dlp`. Finished files are listed at `/downloads` and can be downloaded from there.
 
-No pip packages. No frameworks. Two files: `server.py` and `public/index.html`.
+No pip packages. No frameworks. Three files: `server.py`, `public/index.html`, and the optional `tailscale.sh`.
 
 ## Requirements
 
@@ -49,6 +49,22 @@ Then browse to `http://<LAN IP>:8000` on the other device. If it still won't loa
 
 Only do this on a network you trust. See [Security](#security).
 
+### Access from anywhere (Tailscale)
+
+`tailscale.sh` lets devices in your [Tailscale](https://tailscale.com) network ("tailnet") open the service from any network. Nobody outside the tailnet can reach it, and `server.py` keeps its safe `127.0.0.1` default.
+
+On the host, with Tailscale already installed and `server.py` running:
+
+```sh
+./tailscale.sh                    # logs in if needed, then publishes port 8000 (or $PORT)
+```
+
+It prints an address like `https://<machine>.<tailnet>.ts.net`. Open that on any tailnet device. The setting survives reboots and the script is safe to re-run.
+
+The first run may ask you to turn on **MagicDNS** and **HTTPS certificates** in the Tailscale admin console.
+
+Undo with `sudo tailscale serve reset`.
+
 ## Routes
 
 | Method     | Path                | What it does |
@@ -66,6 +82,7 @@ Everything else returns 404.
 - **Settings:** the `HOST`, `PORT` and `DOWNLOAD_DIR` environment variables (defaults above).
 - **Installing and updating** `yt-dlp` and `ffmpeg`. YouTube changes often, so keep `yt-dlp` current.
 - **Running and stopping** the server.
+- **Tailscale** (if used): your account, installing Tailscale on the host, who may access the service (invite users or share the device), ACLs, and MagicDNS + HTTPS in the admin console.
 
 ## Security
 

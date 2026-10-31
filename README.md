@@ -99,6 +99,10 @@ Everything else returns 404.
 - No HTTP Range support: interrupted downloads restart from zero, and browsers can't seek before the file is saved.
 - `public/index.html` mentions JavaScript status messages, but the CSP (`default-src 'none'`) blocks all scripts, so none run.
 
+## Roadmap
+
+Planned features are listed in [ROADMAP.md](ROADMAP.md).
+
 ## License
 
 GPL-3.0. See [LICENSE](LICENSE).

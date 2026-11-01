@@ -11,11 +11,12 @@ Minimal Python stdlib web service. `public/index.html` is a form (YouTube link, 
 - Form field names in `index.html` must match `FIELDS` in `server.py` (`youtubeUrl`, `format`, `playlist`).
 - Start `yt-dlp` only as an argument list with `--` before the link. Never use a shell. Keep the `FORMATS` and `YT_HOSTS` whitelists.
 - Keep the limits: `MAX_URL`, `MAX_BODY`, `max_num_fields`, pool `max_workers`, the `slots` semaphore, the subprocess `timeout`, and the handler `timeout`.
-- Only `/`, `/downloads`, and `/downloads/<name>` are served. Everything else returns 404. Do not switch to `SimpleHTTPRequestHandler`.
+- Only `/`, `/downloads`, `/downloads/<name>`, and `/log` are served. Everything else returns 404. Do not switch to `SimpleHTTPRequestHandler`.
 - `/downloads/<name>` must reject names containing `/` or starting with `.`, plus anything that is not a regular file. The list page must `html.escape` names and `quote` links.
+- `/log` stays memory-only (`deque(maxlen=200)`, no disk writes, for SSD wear) and is served as `text/plain`, read under `memory.lock`. Lines get in only through the `Memory` logging handler on the `pyweb` logger, never through manual `LOG.append` calls.
 - The server never deletes files. The user manages cleanup, the env vars (`HOST`, `PORT`, `DOWNLOAD_DIR`; defaults must stay), and installing yt-dlp and ffmpeg.
 - `tailscale.sh` (bash, `set -euo pipefail`, must pass `shellcheck`): configure-only and idempotent. It never installs Tailscale. Use `tailscale serve` only, never `funnel` (that would make the service public). Keep the `server.py` `HOST` default at `127.0.0.1`, since serve proxies to localhost. The user manages the Tailscale account, invites, ACLs, and MagicDNS/HTTPS.
-- Known limitations (listed in README): no HTTP Range support; leftover JS mentions in `index.html` are dead code because CSP blocks scripts. If either changes, update the README section.
+- Known limitations (listed in README): no HTTP Range support; `/log` is RAM-only and its failure excerpts are often traceback tails (`--verbose`); leftover JS mentions in `index.html` are dead code because CSP blocks scripts. If either changes, update the README section.
 
 ## Workflow
 

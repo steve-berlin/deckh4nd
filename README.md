@@ -73,6 +73,7 @@ Undo with `sudo tailscale serve reset`.
 | POST       | `/`                 | Queue a download, then redirect back to `/` |
 | GET/HEAD   | `/downloads`        | HTML list of finished files |
 | GET/HEAD   | `/downloads/<name>` | Download one file (saved as an attachment) |
+| GET/HEAD   | `/log`              | Job log as plain text, newest first: queued, done, failed |
 
 Everything else returns 404.
 
@@ -90,13 +91,15 @@ Everything else returns 404.
 - `yt-dlp` is started with an argument list and `--` before the link. It never runs through a shell.
 - At most 2 downloads run at once and 10 can be queued. Beyond that the server answers 503.
 - `/downloads/<name>` rejects names that contain `/` or start with `.`, so `../` traversal and hidden files return 404.
-- File names on the list page are HTML-escaped.
+- File names on the list page are HTML-escaped. `/log` is served as `text/plain`, so a submitted link can never run as code.
+- `/log` shows every submitted link and error to **everyone** who can open the site.
 - Responses carry CSP, `nosniff` and `no-referrer` headers. Idle connections are dropped after 10 s.
 - **No HTTPS and no login.** Anyone who can reach the port can queue downloads and fetch files. Fine on a trusted home LAN. Do not expose it to the internet without a reverse proxy (Caddy or nginx) with authentication.
 
 ## Known limitations
 
 - No HTTP Range support: interrupted downloads restart from zero, and browsers can't seek before the file is saved.
+- `/log` keeps only the newest 200 lines, in RAM (no disk writes, so no SSD wear). It is cleared when the server restarts. Each failure line shows the last 300 characters of yt-dlp's output, which with `--verbose` is often the end of a traceback rather than the reason.
 - `public/index.html` mentions JavaScript status messages, but the CSP (`default-src 'none'`) blocks all scripts, so none run.
 
 ## Roadmap

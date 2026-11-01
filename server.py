@@ -10,6 +10,7 @@ import logging  # prints status/error messages with a timestamp
 import os  # reads settings (environment variables) passed in from the shell
 import subprocess  # starts other programs; we use it to start yt-dlp (must be installed, plus ffmpeg)
 import threading  # gives us a "counter with a limit" (used for `slots` below)
+from collections import deque  # a list with a size limit: adding to a full one drops the oldest item
 from concurrent.futures import ThreadPoolExecutor  # runs jobs in the background
 from html import escape  # turns "<" into "&lt;" etc., so a file name can't sneak code into our page
 from http import HTTPStatus  # named status codes, e.g. HTTPStatus.NOT_FOUND = 404
@@ -65,6 +66,30 @@ pool = ThreadPoolExecutor(max_workers=2)  # at most 2 downloads at the same time
 slots = threading.BoundedSemaphore(10)
 log = logging.getLogger("pyweb")  # our named "message printer"
 
+# The /log page shows the newest job messages. We keep them in memory (RAM) only:
+# nothing is written to disk, so there is no SSD wear, but they vanish on restart.
+LOG = deque(maxlen=200)  # the newest 200 lines; when full, the oldest one falls off
+
+
+# Think of `log` as a radio announcer: it reads each message out to every "listener"
+# plugged into it. The terminal screen is one listener. We want a second one that
+# writes each message into LOG. Python's rule: a listener must be built from the
+# logging.Handler blueprint and have a method named emit(). Python has ready-made
+# listeners for the screen and for files, but none for "write into a list", so we
+# draw our own blueprint below. A class here does NOT mean many copies: we build
+# exactly one. The class is just the plug shape that fits the logger's socket.
+# (Writing LOG.append next to every log.info would mean 4 extra lines, easy to forget.)
+class Memory(logging.Handler):  # "(logging.Handler)" = start from Python's listener blueprint
+    """A listener that writes each message into LOG instead of onto the screen."""
+
+    def emit(self, record):  # the announcer calls this once per message; record = the message
+        LOG.append(self.format(record))  # format() turns the message into "time LEVEL text"
+
+
+memory = Memory()  # build our ONE listener from the blueprint
+memory.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))  # same look as the terminal
+log.addHandler(memory)  # plug it in; the terminal still hears every message too
+
 
 def download(args):
     """Runs in the background: starts yt-dlp with the given command and logs the result."""
@@ -104,6 +129,13 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         """The browser asks to SEE a page (typing the address, clicking a link)."""
         path = self.path.partition("?")[0]  # the address without anything after "?" (e.g. "/downloads?x=1" -> "/downloads")
+        if path == "/log":  # the job log: which downloads were queued, finished, or failed
+            # A download may add a line at this very moment. Holding the printer's lock
+            # makes it wait until we've finished copying, so we never read a half-changed list.
+            with memory.lock:
+                text = "\n".join(reversed(LOG))  # reversed = newest first; "\n" puts one message per line
+            # Plain text, not HTML: a link someone typed into the form can never turn into code on this page.
+            return self.reply(HTTPStatus.OK, text.encode(), Content_Type="text/plain; charset=utf-8")
         if path == "/downloads":  # the list of finished downloads
             # Build one "<li><a ...>name</a></li>" line per file, sorted A-Z, skipping folders.
             # The list is rebuilt on every visit, so new downloads show up right away.
